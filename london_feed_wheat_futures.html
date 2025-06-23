@@ -143,53 +143,10 @@
       }
     }
 
-    async function loadCbData(){
-      try{
-        const tbody = document.getElementById('cbData');
-        if(!tbody) return;
-        tbody.innerHTML='';
-
-        for(const contract of londonContracts){
-          const m = contract.match(/([A-Za-z]{3}).*(\d{2})/);
-          if(!m) continue;
-          const mon = m[1].toLowerCase();
-          const yr  = m[2];
-          const code = monthMap[mon];
-          if(!code) continue;
-          const url = encodeURIComponent(`https://stooq.com/q/l/?s=CB${code}${yr}.F&h&e=csv`);
-          const csv  = await (await fetch(proxy + url)).text();
-          const lines = csv.trim().split(/\r?\n/);
-          if(lines.length<2) continue;
-          const headers = lines[0].split(',');
-          const values  = lines[1].split(',');
-          let lastIdx   = headers.findIndex(h=>/close|last/i.test(h));
-          if(lastIdx===-1) lastIdx=4;
-          let chgIdx    = headers.findIndex(h=>/change/i.test(h));
-          const last    = values[lastIdx] || '';
-          const changeVal = chgIdx!==-1 ? values[chgIdx] : '0';
-          const changeNum = parseFloat(changeVal);
-          const cls = classify(changeNum);
-          const row = document.createElement('tr');
-          [contract,last,arrow(cls)+changeVal].forEach((txt,idx)=>{
-            const cell=document.createElement('td');
-            if(idx===2) cell.className = cls;
-            cell.textContent = txt;
-            row.appendChild(cell);
-          });
-          tbody.appendChild(row);
-        }
-      }catch(err){
-        console.error('Load error',err);
-        document.getElementById('cbError').textContent='Feed unavailable';
-      }
-    }
-
     loadData();
     loadBrentData();
-    loadCbData();
     setInterval(loadData,300000);
     setInterval(loadBrentData,300000);
-    setInterval(loadCbData,300000);
   </script>
 </head>
 <body>
@@ -212,16 +169,6 @@
           <tr><th>Contract</th><th>Last</th><th>Change</th></tr>
         </thead>
         <tbody id="brentData"></tbody>
-      </table>
-    </div>
-    <div>
-      <h2>CBOT Wheat Futures (live)</h2>
-      <div id="cbError" style="color:red"></div>
-      <table>
-        <thead>
-          <tr><th>Contract</th><th>Last</th><th>Change</th></tr>
-        </thead>
-        <tbody id="cbData"></tbody>
       </table>
     </div>
   </div>
