@@ -31,7 +31,11 @@
   </style>
   <script>
     const feedUrl  = encodeURIComponent('https://www.noggersblog.co.uk/dalmarkxml/t-enc.asp');
-    const brentUrl = encodeURIComponent('https://www.noggersblog.co.uk/dalmarkxml/brent-enc.asp');
+ dpp76g-codex/add-live-brent-crude-table
+    // Fetch Brent crude quotes from TradingEconomics guest API
+    const brentUrl = encodeURIComponent('https://api.tradingeconomics.com/commodities/brent?c=guest:guest&format=json');
+
+ main
     const proxy    = 'https://api.allorigins.win/raw?url=';
 
     function classify(num){
@@ -96,43 +100,40 @@
 
     async function loadBrentData(){
       try{
-        const html   = await (await fetch(proxy + brentUrl)).text();
-        const doc    = new DOMParser().parseFromString(html,'text/html');
-        const tbody  = document.getElementById('brentData');
+ dpp76g-codex/add-live-brent-crude-table
+        const data  = await (await fetch(proxy + brentUrl)).json();
+        const tbody = document.getElementById('brentData');
         tbody.innerHTML='';
 
-        doc.querySelectorAll('tr').forEach(tr=>{
-          const texts  = Array.from(tr.querySelectorAll('td')).map(td=>td.textContent.trim());
-          const values = texts.filter(t=>t!=='');
-          if(values.length===0) return;
+        const entry = Array.isArray(data) ? data[0] : data;
+        if(!entry){
+          throw new Error('No data');
+        }
 
-          const row=document.createElement('tr');
+        const rowTime = document.createElement('tr');
+        rowTime.className = 'timestamp';
+        const cellTime = document.createElement('td');
+        cellTime.colSpan = 3;
+        cellTime.textContent = new Date(entry.Date || entry.DateTime || Date.now()).toLocaleString();
+        rowTime.appendChild(cellTime);
+        tbody.appendChild(rowTime);
 
-          if(values.length===1){
-            row.className='timestamp';
-            const cell=document.createElement('td');
-            cell.colSpan=3;
-            cell.textContent=values[0];
-            row.appendChild(cell);
-            tbody.appendChild(row);
-            return;
-          }
+        const row   = document.createElement('tr');
+        const last  = entry.Price ?? entry.Last ?? entry.LastPrice ?? entry.Value;
+        const changeVal = entry.Changes ?? entry.Change ?? entry.Diff ?? 0;
+        const changeNum = parseFloat(changeVal);
+        const cls   = classify(changeNum);
+        const contract = entry.Symbol || entry.Name || 'Brent';
 
-          if(values.length>=3){
-            let [contract,last,change] = values;
-            change = change.replace('s','').trim();
-            const changeNum = parseFloat(change.replace(/[^0-9.\-]/g,''));
-            const cls = classify(changeNum);
-
-            [contract,last,arrow(cls)+change].forEach((txt,idx)=>{
-              const cell=document.createElement('td');
-              if(idx===2) cell.className = cls;
-              cell.textContent = txt;
-              row.appendChild(cell);
-            });
-          }
-          tbody.appendChild(row);
+        [contract,last,arrow(cls)+changeVal].forEach((txt,idx)=>{
+          const cell=document.createElement('td');
+          if(idx===2) cell.className = cls;
+          cell.textContent = txt;
+          row.appendChild(cell);
         });
+        tbody.appendChild(row);
+
+ main
       }catch(err){
         console.error('Load error',err);
         document.getElementById('brentError').textContent='Feed unavailable';
