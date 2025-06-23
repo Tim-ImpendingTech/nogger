@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>London Feed‑Wheat Futures</title>
+  <style>
+    body{font-family:system-ui,Arial,Helvetica,sans-serif;margin:1rem;background:#f9f9f9;color:#222}
+    h2{margin-bottom:.5rem}
+
+    /* table layout */
+    table{border-collapse:collapse;width:100%;max-width:480px;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.06)}
+    th,td{padding:.45rem .7rem;border:1px solid #ccc;text-align:right}
+    th:first-child,td:first-child{text-align:left}
+
+    /* header */
+    thead th{background:#003366;color:#fff;font-weight:600;font-size:.95rem}
+
+    /* zebra striping */
+    tbody tr:nth-child(even){background:#f3f6fa}
+
+    /* timestamp */
+    tr.timestamp td{background:#e8e8e8;font-weight:600;text-align:center;color:#000}
+
+    /* change colouring */
+    td.up{color:#007600;font-weight:600}
+    td.down{color:#c50000;font-weight:600}
+    td.flat{color:#555;font-weight:600}
+  </style>
+  <script>
+    const feedUrl = encodeURIComponent('https://www.noggersblog.co.uk/dalmarkxml/t-enc.asp');
+    const proxy   = 'https://api.allorigins.win/raw?url=' + feedUrl; // CORS proxy
+
+    function classify(num){
+      if(isNaN(num)) return 'flat';
+      if(num>0) return 'up';
+      if(num<0) return 'down';
+      return 'flat';
+    }
+
+    function arrow(cls){
+      if(cls==='up')   return '▲ ';
+      if(cls==='down') return '▼ ';
+      return '→ ';
+    }
+
+    async function loadData(){
+      try{
+        const html   = await (await fetch(proxy)).text();
+        const doc    = new DOMParser().parseFromString(html,'text/html');
+        const tbody  = document.getElementById('data');
+        tbody.innerHTML='';
+
+        doc.querySelectorAll('tr').forEach(tr=>{
+          const texts  = Array.from(tr.querySelectorAll('td')).map(td=>td.textContent.trim());
+          const values = texts.filter(t=>t!=='');
+          if(values.length===0) return;
+
+          const row=document.createElement('tr');
+
+          // timestamp row
+          if(values.length===1){
+            row.className='timestamp';
+            const cell=document.createElement('td');
+            cell.colSpan=3;
+            cell.textContent=values[0];
+            row.appendChild(cell);
+            tbody.appendChild(row);
+            return;
+          }
+
+          // data rows
+          if(values.length>=3){
+            let [contract,last,change] = values;
+            change = change.replace('s','').trim();
+            const changeNum = parseFloat(change.replace(/[^0-9.\-]/g,''));
+            const cls = classify(changeNum);
+
+            [contract,last,arrow(cls)+change].forEach((txt,idx)=>{
+              const cell=document.createElement('td');
+              if(idx===2) cell.className = cls;
+              cell.textContent = txt;
+              row.appendChild(cell);
+            });
+          }
+          tbody.appendChild(row);
+        });
+      }catch(err){
+        console.error('Load error',err);
+        document.getElementById('error').textContent='Feed unavailable';
+      }
+    }
+
+    loadData();
+    setInterval(loadData,300000);
+  </script>
+</head>
+<body>
+  <h2>London Feed‑Wheat Futures (live)</h2>
+  <div id="error" style="color:red"></div>
+  <table>
+    <thead>
+      <tr><th>Contract</th><th>Last</th><th>Change</th></tr>
+    </thead>
+    <tbody id="data"></tbody>
+  </table>
+</body>
+</html>
