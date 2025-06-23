@@ -31,8 +31,11 @@
   </style>
   <script>
     const feedUrl  = encodeURIComponent('https://www.noggersblog.co.uk/dalmarkxml/t-enc.asp');
+ dpp76g-codex/add-live-brent-crude-table
     // Fetch Brent crude quotes from TradingEconomics guest API
     const brentUrl = encodeURIComponent('https://api.tradingeconomics.com/commodities/brent?c=guest:guest&format=json');
+
+ main
     const proxy    = 'https://api.allorigins.win/raw?url=';
 
     function classify(num){
@@ -97,6 +100,7 @@
 
     async function loadBrentData(){
       try{
+ dpp76g-codex/add-live-brent-crude-table
         const data  = await (await fetch(proxy + brentUrl)).json();
         const tbody = document.getElementById('brentData');
         tbody.innerHTML='';
@@ -128,6 +132,8 @@
           row.appendChild(cell);
         });
         tbody.appendChild(row);
+
+ main
       }catch(err){
         console.error('Load error',err);
         document.getElementById('brentError').textContent='Feed unavailable';
