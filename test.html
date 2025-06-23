@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>London Wheat & Brent Crude Futures</title>
+  <style>
+    body{font-family:system-ui,Arial,Helvetica,sans-serif;margin:1rem;background:#f9f9f9;color:#222}
+    h2{margin-bottom:.5rem}
+    .tables{display:flex;flex-wrap:wrap;gap:1rem}
+    .tables>div{flex:1;min-width:300px}
+    table{border-collapse:collapse;width:100%;max-width:480px;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.06)}
+    th,td{padding:.45rem .7rem;border:1px solid #ccc;text-align:right}
+    th:first-child,td:first-child{text-align:left}
+    thead th{background:#003366;color:#fff;font-weight:600;font-size:.95rem}
+    tbody tr:nth-child(even){background:#f3f6fa}
+    tr.timestamp td{background:#e8e8e8;font-weight:600;text-align:center;color:#000}
+  </style>
+</head>
+<body>
+  <div class="tables">
+    <div>
+      <h2>London Feed‑Wheat Futures</h2>
+      <div id="wheatError" style="color:red"></div>
+      <table>
+        <thead>
+          <tr><th>Contract</th><th>Last</th><th>Change</th></tr>
+        </thead>
+        <tbody id="wheatData"></tbody>
+      </table>
+    </div>
+    <div>
+      <h2>Brent Crude Futures</h2>
+      <div id="brentError" style="color:red"></div>
+      <table>
+        <thead>
+          <tr><th>Contract</th><th>Last</th><th>Change</th></tr>
+        </thead>
+        <tbody id="brentData"></tbody>
+      </table>
+    </div>
+  </div>
+<script>
+const wheatUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.noggersblog.co.uk/dalmarkxml/t-enc.asp');
+const brentUrl = 'https://r.jina.ai/https://r2.datahub.io/clt98p18j000bjm08awsmjdre/main/raw/data/brent-daily.csv';
+
+function classifyChange(n){
+  if(isNaN(n)) return '';
+  return n>0 ? 'up' : n<0 ? 'down' : 'flat';
+}
+
+async function loadWheat(){
+  try{
+    const html = await (await fetch(wheatUrl)).text();
+    const doc  = new DOMParser().parseFromString(html,'text/html');
+    const out  = document.getElementById('wheatData');
+    out.innerHTML='';
+    doc.querySelectorAll('tr').forEach(tr=>{
+      const cells = Array.from(tr.querySelectorAll('td')).map(td=>td.textContent.trim()).filter(Boolean);
+      if(!cells.length) return;
+      const row = document.createElement('tr');
+      if(cells.length===1){
+        row.className='timestamp';
+        const td=document.createElement('td');
+        td.colSpan=3; td.textContent=cells[0];
+        row.appendChild(td);
+      }else if(cells.length>=3){
+        const change=parseFloat(cells[2].replace(/[^0-9.\-]/g,''));
+        const cls=classifyChange(change);
+        [cells[0],cells[1],cells[2]].forEach((txt,i)=>{
+          const td=document.createElement('td');
+          if(i===2) td.className=cls;
+          td.textContent=txt;
+          row.appendChild(td);
+        });
+      }
+      out.appendChild(row);
+    });
+  }catch(e){
+    console.error('wheat load error',e);
+    document.getElementById('wheatError').textContent='Feed unavailable';
+  }
+}
+
+async function loadBrent(){
+  try{
+    const text = await (await fetch(brentUrl)).text();
+    const lines = text.trim().split(/\n+/);
+    const start = lines.findIndex(l=>l.startsWith('Date,Price'));
+    const dataLines = start>=0 ? lines.slice(start+1) : lines;
+    const lastLine = dataLines.reverse().find(l=>/\d,/.test(l));
+    if(!lastLine) throw new Error('No data');
+    const [date, price] = lastLine.split(',');
+    const rowTime = document.createElement('tr');
+    rowTime.className='timestamp';
+    const tdTime = document.createElement('td');
+    tdTime.colSpan=3; tdTime.textContent = new Date(date).toLocaleDateString();
+    rowTime.appendChild(tdTime);
+
+    const row = document.createElement('tr');
+    ['Brent', price, '-'].forEach((txt,i)=>{
+      const td=document.createElement('td');
+      td.textContent=txt;
+      row.appendChild(td);
+    });
+
+    const out = document.getElementById('brentData');
+    out.innerHTML='';
+    out.appendChild(rowTime);
+    out.appendChild(row);
+  }catch(e){
+    console.error('brent load error',e);
+    document.getElementById('brentError').textContent='Feed unavailable';
+  }
+}
+
+loadWheat();
+loadBrent();
+setInterval(loadWheat,300000);
+setInterval(loadBrent,300000);
+</script>
+</body>
+</html>
