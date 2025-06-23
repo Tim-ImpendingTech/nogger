@@ -2,12 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>London Feed‑Wheat Futures</title>
+  <title>London Feed‑Wheat & Brent Crude Futures</title>
   <style>
     body{font-family:system-ui,Arial,Helvetica,sans-serif;margin:1rem;background:#f9f9f9;color:#222}
     h2{margin-bottom:.5rem}
 
     /* table layout */
+    .tables{display:flex;flex-wrap:wrap;gap:1rem}
+    .tables>div{flex:1;min-width:300px}
+
     table{border-collapse:collapse;width:100%;max-width:480px;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.06)}
     th,td{padding:.45rem .7rem;border:1px solid #ccc;text-align:right}
     th:first-child,td:first-child{text-align:left}
@@ -27,8 +30,10 @@
     td.flat{color:#555;font-weight:600}
   </style>
   <script>
-    const feedUrl = encodeURIComponent('https://www.noggersblog.co.uk/dalmarkxml/t-enc.asp');
-    const proxy   = 'https://api.allorigins.win/raw?url=' + feedUrl; // CORS proxy
+    const feedUrl  = encodeURIComponent('https://www.noggersblog.co.uk/dalmarkxml/t-enc.asp');
+    // Fetch Brent crude quotes from TradingEconomics guest API
+    const brentUrl = encodeURIComponent('https://api.tradingeconomics.com/commodities/brent?c=guest:guest&format=json');
+    const proxy    = 'https://api.allorigins.win/raw?url=';
 
     function classify(num){
       if(isNaN(num)) return 'flat';
@@ -45,7 +50,7 @@
 
     async function loadData(){
       try{
-        const html   = await (await fetch(proxy)).text();
+        const html   = await (await fetch(proxy + feedUrl)).text();
         const doc    = new DOMParser().parseFromString(html,'text/html');
         const tbody  = document.getElementById('data');
         tbody.innerHTML='';
@@ -90,18 +95,73 @@
       }
     }
 
+    async function loadBrentData(){
+      try{
+        const data  = await (await fetch(proxy + brentUrl)).json();
+        const tbody = document.getElementById('brentData');
+        tbody.innerHTML='';
+
+        const entry = Array.isArray(data) ? data[0] : data;
+        if(!entry){
+          throw new Error('No data');
+        }
+
+        const rowTime = document.createElement('tr');
+        rowTime.className = 'timestamp';
+        const cellTime = document.createElement('td');
+        cellTime.colSpan = 3;
+        cellTime.textContent = new Date(entry.Date || entry.DateTime || Date.now()).toLocaleString();
+        rowTime.appendChild(cellTime);
+        tbody.appendChild(rowTime);
+
+        const row   = document.createElement('tr');
+        const last  = entry.Price ?? entry.Last ?? entry.LastPrice ?? entry.Value;
+        const changeVal = entry.Changes ?? entry.Change ?? entry.Diff ?? 0;
+        const changeNum = parseFloat(changeVal);
+        const cls   = classify(changeNum);
+        const contract = entry.Symbol || entry.Name || 'Brent';
+
+        [contract,last,arrow(cls)+changeVal].forEach((txt,idx)=>{
+          const cell=document.createElement('td');
+          if(idx===2) cell.className = cls;
+          cell.textContent = txt;
+          row.appendChild(cell);
+        });
+        tbody.appendChild(row);
+      }catch(err){
+        console.error('Load error',err);
+        document.getElementById('brentError').textContent='Feed unavailable';
+      }
+    }
+
     loadData();
+    loadBrentData();
     setInterval(loadData,300000);
+    setInterval(loadBrentData,300000);
   </script>
 </head>
 <body>
-  <h2>London Feed‑Wheat Futures (live)</h2>
-  <div id="error" style="color:red"></div>
-  <table>
-    <thead>
-      <tr><th>Contract</th><th>Last</th><th>Change</th></tr>
-    </thead>
-    <tbody id="data"></tbody>
-  </table>
+  <div class="tables">
+    <div>
+      <h2>London Feed‑Wheat Futures (live)</h2>
+      <div id="error" style="color:red"></div>
+      <table>
+        <thead>
+          <tr><th>Contract</th><th>Last</th><th>Change</th></tr>
+        </thead>
+        <tbody id="data"></tbody>
+      </table>
+    </div>
+    <div>
+      <h2>Brent Crude Futures (live)</h2>
+      <div id="brentError" style="color:red"></div>
+      <table>
+        <thead>
+          <tr><th>Contract</th><th>Last</th><th>Change</th></tr>
+        </thead>
+        <tbody id="brentData"></tbody>
+      </table>
+    </div>
+  </div>
 </body>
 </html>
